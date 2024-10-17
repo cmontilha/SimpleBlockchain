@@ -91,6 +91,7 @@ This project was inspired by various tutorials and resources on blockchain techn
 - [Flask API for Beginners by Real Python](https://realpython.com/flask-connexion-rest-api/)
 - [Official Flask Documentation (3.0.x)](https://flask.palletsprojects.com/en/3.0.x/) (for API integration and routing)
 - [Building a Blockchain from Scratch with Python by Pythoneers on Medium](https://medium.com/pythoneers/building-a-blockchain-from-scratch-with-python-489e7116142e)
+- [Como criar uma API REST com Flask por Mateus Silva](https://mateus-dev-me.medium.com/como-criar-uma-api-rest-com-flask-29b6845f1f1c)
 - [Build Your Own Blockchain in Python by Hackernoon](https://hackernoon.com/learn-blockchains-by-building-one-117428612f46)
 
 
