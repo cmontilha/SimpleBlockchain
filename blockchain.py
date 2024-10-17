@@ -92,3 +92,28 @@ class Blockchain:
     def last_block(self):
         # Retorna o último bloco da cadeia
         return self.chain[-1]
+
+    def proof_of_work(self, last_proof):
+        """
+        Algoritmo simples de Proof of Work:
+        - Encontre um número p' tal que hash(pp') contenha 4 zeros à esquerda, onde p é a prova anterior
+        :param last_proof: <int> Prova anterior
+        :return: <int> Nova prova
+        """
+        proof = 0
+        while self.valid_proof(last_proof, proof) is False:
+            proof += 1
+
+        return proof
+
+    @staticmethod
+    def valid_proof(last_proof, proof):
+        """
+        Valida a prova: hash(last_proof, proof) deve conter 4 zeros à esquerda
+        :param last_proof: <int> Prova anterior
+        :param proof: <int> Prova atual
+        :return: <bool> Verdadeiro se correto, Falso se não
+        """
+        guess = f'{last_proof}{proof}'.encode()
+        guess_hash = hashlib.sha256(guess).hexdigest()
+        return guess_hash[:4] == "0000"
