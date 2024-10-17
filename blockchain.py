@@ -1,45 +1,82 @@
 import hashlib
 import json
 from time import time
+from uuid import uuid4
+from urllib.parse import urlparse
 
-class Blockchain:
+from flask import Flask, jsonify, request
+import requests
+
+
+class Chain:
     def __init__(self):
         self.chain = []
-        self.current_transactions = []
+        self.pending_transactions = []
+        self.nodes = set()
 
-        # Cria o bloco gênesis
-        self.new_block(previous_hash='1', proof=100)
+        # Gera o bloco gênesis
+        self.add_block(previous_hash='1', proof=100)
 
-    def new_block(self, proof, previous_hash=None):
+    def add_node(self, address):
         """
-        Cria um novo bloco na blockchain
-        :param proof: <int> A prova dada pelo algoritmo de Proof of Work
-        :param previous_hash: (Opcional) <str> Hash do bloco anterior
-        :return: <dict> Novo Bloco
+        Adiciona um novo nó à rede
+        """
+        parsed_url = urlparse(address)
+        if parsed_url.netloc:
+            self.nodes.add(parsed_url.netloc)
+        elif parsed_url.path:
+            self.nodes.add(parsed_url.path)
+        else:
+            raise ValueError('URL inválida')
+
+    def consensus_resolution(self):
+        """
+        Algoritmo de consenso para resolver conflitos
+        """
+        neighbors = self.nodes
+        longest_chain = None
+
+        max_length = len(self.chain)
+
+        for node in neighbors:
+            response = requests.get(f'http://{node}/chain')
+            if response.status_code == 200:
+                length = response.json()['length']
+                chain = response.json()['chain']
+
+                if length > max_length and self.is_valid_chain(chain):
+                    max_length = length
+                    longest_chain = chain
+
+        if longest_chain:
+            self.chain = longest_chain
+            return True
+
+        return False
+
+    def add_block(self, proof, previous_hash):
+        """
+        Adiciona um novo bloco à blockchain
         """
         block = {
             'index': len(self.chain) + 1,
             'timestamp': time(),
-            'transactions': self.current_transactions,
+            'transactions': self.pending_transactions,
             'proof': proof,
             'previous_hash': previous_hash or self.hash(self.chain[-1]),
         }
 
-        # Reseta a lista de transações atuais
-        self.current_transactions = []
+        # Limpa as transações pendentes
+        self.pending_transactions = []
 
         self.chain.append(block)
         return block
 
-    def new_transaction(self, sender, recipient, amount):
+    def create_transaction(self, sender, recipient, amount):
         """
-        Cria uma nova transação para ser incluída no próximo bloco minerado
-        :param sender: <str> Endereço do remetente
-        :param recipient: <str> Endereço do destinatário
-        :param amount: <int> Quantidade
-        :return: <int> O índice do bloco que conterá a transação
+        Cria uma nova transação para ser incluída no próximo bloco
         """
-        self.current_transactions.append({
+        self.pending_transactions.append({
             'sender': sender,
             'recipient': recipient,
             'amount': amount,
@@ -47,110 +84,86 @@ class Blockchain:
 
         return self.last_block['index'] + 1
 
-    @staticmethod
-    def hash(block):
+    def calculate_proof(self, last_proof):
         """
-        Cria um hash SHA-256 de um bloco
-        :param block: <dict> Bloco
-        :return: <str> Hash do bloco
-        """
-        block_string = json.dumps(block, sort_keys=True).encode()
-        return hashlib.sha256(block_string).hexdigest()
-
-    @property
-    def last_block(self):
-        # Retorna o último bloco da cadeia
-        return self.chain[-1]
-
-    def new_transaction(self, sender, recipient, amount):
-        """
-        Cria uma nova transação para ser incluída no próximo bloco minerado
-        :param sender: <str> Endereço do remetente
-        :param recipient: <str> Endereço do destinatário
-        :param amount: <int> Quantidade
-        :return: <int> O índice do bloco que conterá a transação
-        """
-        self.current_transactions.append({
-            'sender': sender,
-            'recipient': recipient,
-            'amount': amount,
-        })
-
-        return self.last_block['index'] + 1
-
-    @staticmethod
-    def hash(block):
-        """
-        Cria um hash SHA-256 de um bloco
-        :param block: <dict> Bloco
-        :return: <str> Hash do bloco
-        """
-        block_string = json.dumps(block, sort_keys=True).encode()
-        return hashlib.sha256(block_string).hexdigest()
-
-    @property
-    def last_block(self):
-        # Retorna o último bloco da cadeia
-        return self.chain[-1]
-
-    def proof_of_work(self, last_proof):
-        """
-        Algoritmo simples de Proof of Work:
-        - Encontre um número p' tal que hash(pp') contenha 4 zeros à esquerda, onde p é a prova anterior
-        :param last_proof: <int> Prova anterior
-        :return: <int> Nova prova
+        Algoritmo de prova de trabalho simplificado
         """
         proof = 0
-        while self.valid_proof(last_proof, proof) is False:
+        while not self.is_valid_proof(last_proof, proof):
             proof += 1
 
         return proof
 
     @staticmethod
-    def valid_proof(last_proof, proof):
+    def hash(block):
         """
-        Valida a prova: hash(last_proof, proof) deve conter 4 zeros à esquerda
-        :param last_proof: <int> Prova anterior
-        :param proof: <int> Prova atual
-        :return: <bool> Verdadeiro se correto, Falso se não
+        Cria um hash SHA-256 do bloco
+        """
+        block_string = json.dumps(block, sort_keys=True).encode()
+        return hashlib.sha256(block_string).hexdigest()
+
+    def is_valid_chain(self, chain):
+        """
+        Verifica se a blockchain fornecida é válida
+        """
+        last_block = chain[0]
+        current_index = 1
+
+        while current_index < len(chain):
+            block = chain[current_index]
+            last_block_hash = self.hash(last_block)
+
+            if block['previous_hash'] != last_block_hash:
+                return False
+
+            if not self.is_valid_proof(last_block['proof'], block['proof']):
+                return False
+
+            last_block = block
+            current_index += 1
+
+        return True
+
+    @staticmethod
+    def is_valid_proof(last_proof, proof):
+        """
+        Valida a prova de trabalho
         """
         guess = f'{last_proof}{proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
-        return guess_hash[:4] == "0000"
+        return guess_hash[:4] == "1234"
+
+    @property
+    def last_block(self):
+        return self.chain[-1]
 
 
-
-from flask import Flask, jsonify, request
-from uuid import uuid4
-
-# Instancia o Flask
+# Instancia o servidor Flask
 app = Flask(__name__)
 
-# Gera um endereço único para este nó
-node_identifier = str(uuid4()).replace('-', '')
+# Gera um identificador único para este nó
+node_id = str(uuid4()).replace('-', '')
 
-# Instancia a Blockchain
-blockchain = Blockchain()
+# Instancia a blockchain
+blockchain = Chain()
+
 
 @app.route('/mine', methods=['GET'])
 def mine():
     last_block = blockchain.last_block
-    last_proof = last_block['proof']
-    proof = blockchain.proof_of_work(last_proof)
+    proof = blockchain.calculate_proof(last_block['proof'])
 
-    # Recompensa por encontrar a prova
-    blockchain.new_transaction(
+    blockchain.create_transaction(
         sender="0",
-        recipient=node_identifier,
+        recipient=node_id,
         amount=1,
     )
 
-    # Cria o novo bloco
     previous_hash = blockchain.hash(last_block)
-    block = blockchain.new_block(proof, previous_hash)
+    block = blockchain.add_block(proof, previous_hash)
 
     response = {
-        'message': "Novo Bloco Forjado",
+        'message': "Novo bloco criado",
         'index': block['index'],
         'transactions': block['transactions'],
         'proof': block['proof'],
@@ -158,20 +171,20 @@ def mine():
     }
     return jsonify(response), 200
 
+
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
     values = request.get_json()
 
-    # Verifica se os campos obrigatórios estão presentes
     required = ['sender', 'recipient', 'amount']
     if not all(k in values for k in required):
-        return 'Valores faltando', 400
+        return 'Campos ausentes', 400
 
-    # Cria uma nova transação
-    index = blockchain.new_transaction(values['sender'], values['recipient'], values['amount'])
+    index = blockchain.create_transaction(values['sender'], values['recipient'], values['amount'])
 
     response = {'message': f'Transação será adicionada ao bloco {index}'}
     return jsonify(response), 201
+
 
 @app.route('/chain', methods=['GET'])
 def full_chain():
@@ -180,6 +193,7 @@ def full_chain():
         'length': len(blockchain.chain),
     }
     return jsonify(response), 200
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
