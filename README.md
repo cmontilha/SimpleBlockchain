@@ -93,8 +93,7 @@ This project was inspired by various tutorials and resources on blockchain techn
 - [Building a Blockchain from Scratch with Python by Pythoneers on Medium](https://medium.com/pythoneers/building-a-blockchain-from-scratch-with-python-489e7116142e)
 - [Como criar uma API REST com Flask por Mateus Silva](https://mateus-dev-me.medium.com/como-criar-uma-api-rest-com-flask-29b6845f1f1c)
 - [Build Your Own Blockchain in Python by Hackernoon](https://hackernoon.com/learn-blockchains-by-building-one-117428612f46)
-
-
+- [Python-Jose Documentation](https://python-jose.readthedocs.io/en/latest/) 
   
 These resources helped guide the implementation of core blockchain features like transaction management, proof of work mining, and creating a simple API.
 
