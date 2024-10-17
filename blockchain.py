@@ -61,3 +61,34 @@ class Blockchain:
     def last_block(self):
         # Retorna o último bloco da cadeia
         return self.chain[-1]
+
+    def new_transaction(self, sender, recipient, amount):
+        """
+        Cria uma nova transação para ser incluída no próximo bloco minerado
+        :param sender: <str> Endereço do remetente
+        :param recipient: <str> Endereço do destinatário
+        :param amount: <int> Quantidade
+        :return: <int> O índice do bloco que conterá a transação
+        """
+        self.current_transactions.append({
+            'sender': sender,
+            'recipient': recipient,
+            'amount': amount,
+        })
+
+        return self.last_block['index'] + 1
+
+    @staticmethod
+    def hash(block):
+        """
+        Cria um hash SHA-256 de um bloco
+        :param block: <dict> Bloco
+        :return: <str> Hash do bloco
+        """
+        block_string = json.dumps(block, sort_keys=True).encode()
+        return hashlib.sha256(block_string).hexdigest()
+
+    @property
+    def last_block(self):
+        # Retorna o último bloco da cadeia
+        return self.chain[-1]
